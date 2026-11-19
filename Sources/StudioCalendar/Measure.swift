@@ -15,7 +15,7 @@ enum Measure {
             .appendingPathComponent("Library/Application Support/worktime-local", isDirectory: true)
     }
 
-    static var available: Bool { FileManager.default.fileExists(atPath: folder.appendingPathComponent("notes.json").path) }
+    static var available: Bool { !Demo.on && FileManager.default.fileExists(atPath: folder.appendingPathComponent("notes.json").path) }
 
     private static func json(_ name: String) -> [[String: Any]] {
         guard let data = try? Data(contentsOf: folder.appendingPathComponent(name)),
@@ -32,6 +32,7 @@ enum Measure {
 
     /// Open to-dos plus each active project's next step and next open milestone, deadlines first.
     static func items() -> [Item] {
+        if Demo.on { return [] }
         var out: [Item] = []
         for t in openTodos() {
             out.append(Item(title: t.title, project: t.project, due: nil))
@@ -61,7 +62,8 @@ enum Measure {
 
     /// Projects that are running or waiting.
     static func projects() -> [Project] {
-        json("initiatives.json").compactMap { p in
+        if Demo.on { return [] }
+        return json("initiatives.json").compactMap { p in
             guard let id = p["id"] as? String, p["deleted"] as? Bool != true,
                   let status = p["status"] as? String, status == "active" || status == "waiting" else { return nil }
             return Project(id: id, company: p["company"] as? String ?? "", title: p["title"] as? String ?? "")
@@ -105,7 +107,8 @@ enum Measure {
     }
 
     static func openTodos() -> [Todo] {
-        json("notes.json").filter(isOpen).compactMap { n in
+        if Demo.on { return [] }
+        return json("notes.json").filter(isOpen).compactMap { n in
             guard let id = n["id"] as? String, let t = n["title"] as? String else { return nil }
             return Todo(id: id, title: t, project: n["project"] as? String ?? "")
         }

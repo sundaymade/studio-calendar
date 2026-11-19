@@ -5,3 +5,4 @@
 sync/Settings.gs
 *.ics
 .signing
+dist/

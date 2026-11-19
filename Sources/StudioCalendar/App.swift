@@ -173,6 +173,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// Every 30 s: Do Not Disturb for focus blocks. Once a day, when you are at the Mac:
     /// the morning plan (from 6:00 until noon) and the evening check (from 18:00).
     private func tick() {
+        if Demo.on { return }   // no Do Not Disturb, notes or morning/evening screens in the demo
         focusGuard.tick(store)
         if store.authorized { meetingNotes.tick(store) }
         guard store.authorized, !ritual.isOpen else { return }

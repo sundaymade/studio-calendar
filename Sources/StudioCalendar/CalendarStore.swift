@@ -44,6 +44,7 @@ final class CalendarStore: ObservableObject {
     }
 
     func requestAccess() async {
+        if Demo.on { authorized = true; problem = nil; reload(); return }
         do {
             let ok = try await ek.requestFullAccessToEvents()
             authorized = ok
@@ -78,6 +79,7 @@ final class CalendarStore: ObservableObject {
 
     func reload() {
         guard authorized else { return }
+        if Demo.on { events = Demo.events(ek, now: Date()).sorted { $0.start < $1.start }; now = Date(); return }
         let cals = calendars.filter { shownIDs.contains($0.calendarIdentifier) }
         guard !cals.isEmpty else { events = []; return }
         let cal = Calendar.current
@@ -156,6 +158,7 @@ final class CalendarStore: ObservableObject {
 
     @discardableResult
     func add(title: String, start: Date, end: Date, kind: Category? = nil, location: String? = nil, todo: String? = nil) -> Bool {
+        if Demo.on { return false }
         guard let target else { problem = "No calendar to add to."; return false }
         let e = EKEvent(eventStore: ek)
         e.calendar = target
@@ -210,7 +213,7 @@ final class CalendarStore: ObservableObject {
 
     /// Everyone you met in the last half year, from the attendee lists: "Name <email>", most recent first.
     func people(limit: Int = 200) -> [String] {
-        guard authorized else { return [] }
+        guard authorized, !Demo.on else { return [] }
         let cal = Calendar.current
         let start = cal.date(byAdding: .day, value: -180, to: now)!
         let end = cal.date(byAdding: .day, value: 60, to: now)!

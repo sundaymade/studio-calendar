@@ -1,3 +1,5 @@
+<img src="docs/icon.png" width="96" alt="Studio Calendar icon">
+
 # Studio Calendar
 
 Your calendar as your Mac desktop. One huge number, today on the left, your week on the right,
@@ -5,6 +7,21 @@ and a prompt at the bottom where Claude plans your day with you.
 
 Folders on the desktop are a habit from another time. Studio Calendar replaces them with the
 thing you actually look at all day: what is next.
+
+![Studio Calendar on the desktop, with a sample week](docs/screenshot.png)
+
+**[Download for Mac](https://github.com/sundaymade/studio-calendar/releases/latest)** · macOS 14 or later ·
+Apple Silicon and Intel · free and open source
+
+1. Download `Studio-Calendar-….zip`, open it and drag **Studio Calendar** into Applications.
+2. Open it. The first time, macOS says it cannot check the app: open **System Settings > Privacy & Security**,
+   scroll down and click **Open Anyway**. (Or in Terminal: `xattr -dr com.apple.quarantine "/Applications/Studio Calendar.app"`.)
+3. Allow Calendar access. Your calendar now sits on the desktop. The calendar icon in the menu bar picks which
+   calendars to show, and has Quit and Launch at Login.
+4. For the Claude prompt: install [Claude Code](https://code.claude.com) and sign in once in Terminal (`claude`).
+   Everything else works without it.
+
+Want to see it with a made-up week first? `open -a "Studio Calendar" --args --demo`
 
 The repository has two parts:
 
@@ -61,9 +78,9 @@ The repository has two parts:
 | `M`, `E` | Morning plan, evening check |
 | `esc` | Close |
 
-## Install
+## Build from source
 
-Requires macOS 14+, the Xcode command line tools and, for the prompt, [Claude Code](https://code.claude.com)
+Requires macOS 14+ and the Xcode command line tools. For the prompt, [Claude Code](https://code.claude.com)
 installed and logged in.
 
 ```sh
@@ -76,6 +93,9 @@ macOS asks for Calendar access on first launch. Contacts and Screen Recording ar
 
 Signing: put `SIGN_IDENTITY="<your identity hash>"` into a file `.signing` (ignored by git) or the environment.
 Without it the app is signed ad hoc, and macOS may ask for permissions again after every build.
+
+`./release.sh` builds the universal app and the zip for a GitHub release (notarized when `RELEASE_IDENTITY` and
+`NOTARY_PROFILE` are set). The icon comes from `Resources/icon/icon.html` (`Resources/icon/make-icon.sh`).
 
 ## Settings
 

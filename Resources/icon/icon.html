@@ -1,0 +1,23 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<!-- Source of the app icon. Render: ./make-icon.sh -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@800&display=swap">
+<style>
+html,body{margin:0;width:1024px;height:1024px;background:transparent}
+.tile{position:absolute;left:100px;top:100px;width:824px;height:824px;border-radius:185px;background:#fff;
+  box-shadow:0 0 0 1px rgba(0,0,0,.06) inset,0 14px 28px rgba(0,0,0,.18);display:flex;align-items:center;justify-content:center;
+  font-family:'Inter Tight',system-ui,sans-serif}
+.stack{display:inline-flex;flex-direction:column;align-items:stretch;padding-top:32px}
+.num{font-size:483px;font-weight:800;line-height:.8;letter-spacing:-.03em;color:#0A0A0A}
+.bar{display:flex;height:23px;margin-top:55px}.bar div{flex:1}
+svg{align-self:flex-end;margin-right:-20px;margin-bottom:-16px}
+</style></head>
+<body><div class="tile"><div class="stack">
+<svg viewBox="4 2 16 19" width="135" height="161" shape-rendering="crispEdges" aria-hidden="true">
+<rect x="4" y="5" width="16" height="12" fill="#0A0A0A"/><rect x="10" y="2" width="3" height="3" fill="#0A0A0A"/>
+<rect x="8.25" y="8" width="2.5" height="3" fill="#fff"/><rect x="13.25" y="8" width="2.5" height="3" fill="#fff"/>
+<rect x="7" y="17" width="2" height="4" fill="#0A0A0A"/><rect x="15" y="17" width="2" height="4" fill="#0A0A0A"/>
+</svg>
+<div class="num">11</div>
+<div class="bar"><div style="background:#FF8FB8"></div><div style="background:#8CC8FF"></div><div style="background:#8EE3A8"></div><div style="background:#B9A6FF"></div></div>
+</div></div></body></html>
