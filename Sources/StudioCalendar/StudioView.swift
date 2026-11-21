@@ -772,6 +772,10 @@ struct DayColumn: View {
                 ctx.fill(Path(CGRect(x: 0, y: 0, width: 1, height: size.height)), with: .color(th.hair))
             }
             .contentShape(Rectangle())
+            // A plain click on empty grid ends an open draft (saved if it has a title).
+            .simultaneousGesture(TapGesture().onEnded {
+                if ui.draft != nil, !NSEvent.modifierFlags.contains(.command) { NSApp.keyWindow?.makeFirstResponder(nil) }
+            })
             .gesture(
                 DragGesture(minimumDistance: 0)
                     .modifiers(.command)
@@ -918,11 +922,19 @@ struct DraftBlock: View {
         .overlay(Rectangle().stroke(th.fg, lineWidth: 2))
         .onAppear { if !draft.dragging { focused = true } }
         .onChange(of: draft.dragging) { _, dragging in if !dragging { focused = true } }
+        // Typed a title, then clicked away or switched apps: save it, like Apple Calendar does.
+        // Before, only Enter saved, and the draft stayed on screen unsaved, covering real events.
+        .onChange(of: focused) { _, now in if !now, !draft.dragging { commit() } }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didResignActiveNotification)) { _ in
+            if !draft.dragging { commit() }
+        }
     }
 
     private func hm(_ m: Int) -> String { String(format: "%02d:%02d", m / 60, m % 60) }
 
     private func commit() {
+        // Esc already closed it, or a new drag replaced it.
+        guard ui.draft == draft else { return }
         let t = title.trimmingCharacters(in: .whitespaces)
         if !t.isEmpty {
             let cal = Calendar.current
