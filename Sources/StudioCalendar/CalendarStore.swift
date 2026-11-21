@@ -104,9 +104,12 @@ final class CalendarStore: ObservableObject {
 
     // MARK: queries
 
+    /// Timed events on this day, including ones that started earlier and run into it (a two-day hackathon).
     func timed(on day: Date) -> [CalEvent] {
         let cal = Calendar.current
-        return events.filter { !$0.allDay && cal.isDate($0.start, inSameDayAs: day) }
+        let dayStart = cal.startOfDay(for: day)
+        let dayEnd = cal.date(byAdding: .day, value: 1, to: dayStart)!
+        return events.filter { !$0.allDay && $0.start < dayEnd && $0.end > dayStart }
     }
 
     func allDay(on day: Date) -> [CalEvent] {
@@ -251,7 +254,8 @@ final class CalendarStore: ObservableObject {
             }
             for e in timed(on: day) {
                 n += 1; ids["#\(n)"] = e
-                lines.append("  #\(n) \(Fmt.time.string(from: e.start))–\(Fmt.time.string(from: e.end)) · \(e.title) [\(e.category.rawValue)]")
+                let from = cal.isDate(e.start, inSameDayAs: day) ? "" : Fmt.weekdayShort.string(from: e.start) + " "
+                lines.append("  #\(n) \(from)\(e.span) · \(e.title) [\(e.category.rawValue)]")
             }
             let free = freeSlots(on: day).map { Fmt.time.string(from: $0.0) + "–" + Fmt.time.string(from: $0.1) }
             lines.append("  free: " + (free.isEmpty ? "none" : free.joined(separator: ", ")))

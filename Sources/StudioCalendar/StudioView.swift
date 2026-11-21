@@ -138,8 +138,8 @@ struct LeftPanel: View {
             if chat.isOpen {
                 ChatPanel().padding(.top, 24)
             } else {
-                EventList(title: "Today", events: store.timed(on: today)).padding(.top, 26)
-                EventList(title: "Tomorrow · " + Fmt.weekday.string(from: tomorrow), events: store.timed(on: tomorrow)).padding(.top, 22)
+                EventList(title: "Today", day: today, events: store.timed(on: today)).padding(.top, 26)
+                EventList(title: "Tomorrow · " + Fmt.weekday.string(from: tomorrow), day: tomorrow, events: store.timed(on: tomorrow)).padding(.top, 22)
                 Spacer(minLength: 12)
             }
             PromptField().padding(.top, 12)
@@ -183,7 +183,7 @@ struct UpNext: View {
                     .lineLimit(2)
             }
             HStack(alignment: .center, spacing: 10) {
-                Text(Fmt.time.string(from: ev.start) + "–" + Fmt.time.string(from: ev.end))
+                Text(ev.span)
                     .font(Theme.mono(13, .regular))
                     .foregroundStyle(th.fg)
                 if let place = ev.location {
@@ -231,7 +231,22 @@ struct EventList: View {
     @EnvironmentObject var ui: UIState
     @Environment(\.theme) var th
     let title: String
+    let day: Date
     let events: [CalEvent]
+
+    /// Carried over from an earlier day (second day of a hackathon): show when it ends and which day it is.
+    private func carried(_ ev: CalEvent) -> Bool { !Calendar.current.isDate(ev.start, inSameDayAs: day) }
+    private func timeText(_ ev: CalEvent) -> String {
+        guard carried(ev) else { return Fmt.time.string(from: ev.start) }
+        return Calendar.current.isDate(ev.end.addingTimeInterval(-1), inSameDayAs: day) ? "–" + Fmt.time.string(from: ev.end) : "all day"
+    }
+    private func sideText(_ ev: CalEvent) -> String {
+        guard carried(ev) else { return Fmt.duration(ev.end.timeIntervalSince(ev.start)) }
+        let cal = Calendar.current
+        let n = (cal.dateComponents([.day], from: cal.startOfDay(for: ev.start), to: cal.startOfDay(for: day)).day ?? 0) + 1
+        return "day \(n)"
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Label11(text: title).padding(.bottom, 6)
@@ -246,14 +261,14 @@ struct EventList: View {
             ForEach(events.prefix(6)) { ev in
                 HStack(spacing: 10) {
                     Rectangle().fill(th.fill(ev.category)).frame(width: 10, height: 10)
-                    Text(Fmt.time.string(from: ev.start))
+                    Text(timeText(ev))
                         .font(Theme.mono(12, .regular)).foregroundStyle(th.muted)
                         .frame(width: 46, alignment: .leading)
                     Text(ev.title)
                         .font(.system(size: 14, weight: .medium)).foregroundStyle(th.fg)
                         .lineLimit(2)
                     Spacer(minLength: 8)
-                    Text(Fmt.duration(ev.end.timeIntervalSince(ev.start)))
+                    Text(sideText(ev))
                         .font(Theme.mono(12, .regular)).foregroundStyle(th.muted)
                 }
                 .padding(.vertical, 9)
@@ -642,10 +657,15 @@ struct TimeGrid: View {
         var lo = 8, hi = 20
         for d in days {
             for e in store.timed(on: d) {
-                lo = min(lo, cal.component(.hour, from: e.start))
-                let endsNextDay = !cal.isDate(e.end, inSameDayAs: e.start)
-                let eh = endsNextDay ? 24 : cal.component(.hour, from: e.end) + (cal.component(.minute, from: e.end) > 0 ? 1 : 0)
-                hi = max(hi, eh)
+                // An event carried over from an earlier day fills the morning anyway; only its own start moves the top.
+                let startsHere = cal.isDate(e.start, inSameDayAs: d)
+                if startsHere { lo = min(lo, cal.component(.hour, from: e.start)) }
+                let endsHere = cal.isDate(e.end.addingTimeInterval(-1), inSameDayAs: d)
+                if endsHere {
+                    hi = max(hi, cal.component(.hour, from: e.end) + (cal.component(.minute, from: e.end) > 0 ? 1 : 0))
+                } else if startsHere {
+                    hi = 24
+                }
             }
         }
         return (max(0, lo), min(24, max(hi, lo + 6)))
@@ -789,7 +809,7 @@ struct DayColumn: View {
                     .onEnded { _ in ui.draft?.dragging = false }
             )
 
-            ForEach(layout(store.timed(on: day))) { item in
+            ForEach(layout(store.timed(on: day), on: day)) { item in
                 EventBlock(ev: item.ev, short: item.h < 36)
                     .frame(width: item.w, height: item.h)
                     .offset(x: item.x, y: item.y)
@@ -818,12 +838,14 @@ struct DayColumn: View {
     }
 
     /// Side-by-side lanes for overlapping events.
-    private func layout(_ evs: [CalEvent]) -> [Placed] {
+    private func layout(_ evs: [CalEvent], on day: Date) -> [Placed] {
         let cal = Calendar.current
         struct Item { let ev: CalEvent; let s: Int; let e: Int; var lane = 0 }
         var items: [Item] = evs.compactMap { ev in
-            let s = cal.component(.hour, from: ev.start) * 60 + cal.component(.minute, from: ev.start)
-            var e = cal.isDate(ev.end, inSameDayAs: ev.start) ? cal.component(.hour, from: ev.end) * 60 + cal.component(.minute, from: ev.end) : 24 * 60
+            // Clip to this day: carried-over events start at 0:00, ones running past midnight end at 24:00.
+            let s = cal.isDate(ev.start, inSameDayAs: day) ? cal.component(.hour, from: ev.start) * 60 + cal.component(.minute, from: ev.start) : 0
+            var e = cal.isDate(ev.end.addingTimeInterval(-1), inSameDayAs: day) ? cal.component(.hour, from: ev.end) * 60 + cal.component(.minute, from: ev.end) : 24 * 60
+            if e == 0 { e = 24 * 60 }
             e = max(e, s + 15)
             let cs = max(s, h0 * 60), ce = min(e, h1 * 60)
             return ce > cs ? Item(ev: ev, s: cs, e: ce) : nil
@@ -874,7 +896,7 @@ struct EventBlock: View {
                 .font(.system(size: 12.5, weight: .semibold))
                 .lineLimit(short ? 1 : 3)
             if !short {
-                Text(Fmt.time.string(from: ev.start) + "–" + Fmt.time.string(from: ev.end))
+                Text(ev.span)
                     .font(Theme.mono(11, .regular))
                     .opacity(0.75)
             }
@@ -888,7 +910,7 @@ struct EventBlock: View {
         .overlay(Rectangle().stroke(th.fg, lineWidth: selected ? 2 : 0))
         .opacity(ev.end <= store.now ? 0.38 : 1)
         .contentShape(Rectangle())
-        .help(ev.title + "  " + Fmt.time.string(from: ev.start) + "–" + Fmt.time.string(from: ev.end))
+        .help(ev.title + "  " + ev.span)
         .onTapGesture(coordinateSpace: .named("root")) { p in ui.popover = PopoverInfo(event: ev, point: p) }
     }
 }
@@ -1007,7 +1029,7 @@ struct EventCard: View {
     private func dateLine(_ ev: CalEvent) -> String {
         let day = Fmt.f("EEEE d MMM").string(from: ev.start)
         if ev.allDay { return day + " · all day" }
-        return day + " · " + Fmt.time.string(from: ev.start) + "–" + Fmt.time.string(from: ev.end)
+        return day + " · " + ev.span
     }
 
     private func done() {

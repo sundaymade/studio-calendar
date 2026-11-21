@@ -49,6 +49,14 @@ struct CalEvent: Identifiable, Equatable {
 
     var isRunning: Bool { start <= Date() && end > Date() }
 
+    /// "09:00–17:15", or "09:00–Sun 17:15" when it ends on a later day.
+    var span: String {
+        let to = Calendar.current.isDate(end.addingTimeInterval(-1), inSameDayAs: start)
+            ? Fmt.time.string(from: end)
+            : Fmt.weekdayShort.string(from: end) + " " + Fmt.time.string(from: end)
+        return Fmt.time.string(from: start) + "–" + to
+    }
+
     init(_ e: EKEvent) {
         ekID = e.eventIdentifier ?? UUID().uuidString
         id = ekID + "@" + String(Int(e.startDate.timeIntervalSince1970))

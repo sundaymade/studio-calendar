@@ -468,7 +468,7 @@ struct RitualView: View {
     private var planView: some View {
         let fixed = store.timed(on: store.now).filter { $0.end > store.now }
         let items: [(Date, AnyView)] = fixed.map { ev in
-            (ev.start, AnyView(PlanLine(time: Fmt.time.string(from: ev.start) + "–" + Fmt.time.string(from: ev.end), title: ev.title,
+            (ev.start, AnyView(PlanLine(time: ev.span, title: ev.title,
                                         color: th.fill(ev.category), fixed: true, remove: nil)))
         } + ritual.blocks.map { b in
             (b.start, AnyView(PlanLine(time: Fmt.time.string(from: b.start) + "–" + Fmt.time.string(from: b.end), title: b.title,

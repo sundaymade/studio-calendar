@@ -2,8 +2,9 @@ import AppKit
 import Foundation
 
 /// The "›" shell: Claude Code running headless on this Mac (your own login, no API key),
-/// set up only as your planner. Claude has no tools. It answers from the calendar context we
-/// pass in and proposes changes in a ```calendar block; nothing changes until you click Apply.
+/// set up only as your planner. Its only tools are web search and web fetch (agendas, deadlines,
+/// opening hours). It answers from the calendar context we pass in plus what it finds online and
+/// proposes changes in a ```calendar block; nothing changes until you click Apply.
 @MainActor
 final class ChatModel: ObservableObject {
     enum Op: Equatable {
@@ -331,10 +332,16 @@ final class ChatModel: ObservableObject {
         - Contacts: when \(me) says "speicher den Kontakt" or sends a profile, card or chat with someone's number, propose
           {"op":"contact","name":"Full Name","phone":"+44 …","email":"…","note":"where you met, e.g. LinkedIn, Milan"}
           Only what is visible or said. Leave email out unless it is shown. The app saves it to Contacts after \(me) clicks.
-        - You have no tools, no files and no memory. Never write tool calls or XML. Everything \(me) wants kept goes into
+        - You can look things up online (WebSearch, WebFetch): event agendas and schedules, deadlines, opening hours,
+          travel times, the date of something. When the answer is on the web, look it up yourself instead of asking \(me),
+          then propose the exact times. Name the source in one short line. If you cannot find it, say so in one line.
+        - You have no files and no memory. Never write tool calls or XML as text. Everything \(me) wants kept goes into
           a calendar event (notes in the title or location) or a contact, as a proposal.
         """
     }
+
+    /// The only tools the planner gets: read the web, nothing on this Mac.
+    static let webTools = "WebSearch,WebFetch"
 
     private func run(_ text: String, image: (data: Data, type: String)? = nil) {
         guard let claude = Self.claudePath() else {
@@ -344,7 +351,7 @@ final class ChatModel: ObservableObject {
         let p = Process()
         p.executableURL = URL(fileURLWithPath: claude)
         var args = ["-p", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose",
-                    "--tools", "", "--strict-mcp-config", "--settings", #"{"autoMemoryEnabled":false}"#,
+                    "--tools", Self.webTools, "--allowedTools", Self.webTools, "--strict-mcp-config", "--settings", #"{"autoMemoryEnabled":false}"#,
                     "--model", UserDefaults.standard.string(forKey: "claudeModel") ?? "sonnet",
                     "--append-system-prompt", systemPrompt()]
         if let sessionID { args += ["--resume", sessionID] }
@@ -415,6 +422,7 @@ final class ChatModel: ObservableObject {
             if let msg = obj["message"] as? [String: Any], let content = msg["content"] as? [[String: Any]] {
                 let text = content.compactMap { $0["type"] as? String == "text" ? $0["text"] as? String : nil }.joined()
                 if !text.isEmpty { setReply(text) }
+                else if content.contains(where: { $0["type"] as? String == "tool_use" }) { setReply("Looking it up online …") }
             }
         case "result":
             if let sid = obj["session_id"] as? String { sessionID = sid }
@@ -462,7 +470,7 @@ final class ChatModel: ObservableObject {
     // MARK: parsing
 
     static func stripBlock(_ text: String) -> String {
-        // The planner has no tools; if it still writes a tool call, never show the raw markup.
+        // If the planner writes a tool call as text, never show the raw markup.
         var out = text.replacingOccurrences(of: #"<invoke[\s\S]*?</invoke>"#, with: "", options: .regularExpression)
             .replacingOccurrences(of: #"</?(function_calls|antml:[a-z_]+)[^>]*>"#, with: "", options: .regularExpression)
         for name in ["calendar", "message"] {
