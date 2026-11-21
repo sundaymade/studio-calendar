@@ -10,6 +10,7 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp .build/release/StudioCalendar "$APP/Contents/MacOS/StudioCalendar"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
 cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
+cp Resources/mail.py "$APP/Contents/Resources/mail.py"
 # Your own signing identity keeps permissions (Calendar, Contacts, Screen Recording) across rebuilds.
 # Without one, the app is signed ad hoc and macOS may ask again after each build.
 [ -f .signing ] && . ./.signing   # optional, not in git: SIGN_IDENTITY="<your identity hash>"

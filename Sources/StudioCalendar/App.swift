@@ -27,6 +27,10 @@ enum Main {
             Preview.run(mode: args[i + 1], out: args[i + 2], dark: args.contains("--dark"))
             return
         }
+        if let i = args.firstIndex(of: "--find") {
+            CalendarFind.run(Array(args[(i + 1)...]))
+            return
+        }
         let app = NSApplication.shared
         let d = AppDelegate()
         delegate = d

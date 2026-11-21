@@ -2,9 +2,8 @@ import AppKit
 import Foundation
 
 /// The "›" shell: Claude Code running headless on this Mac (your own login, no API key),
-/// set up only as your planner. Its only tools are web search and web fetch (agendas, deadlines,
-/// opening hours). It answers from the calendar context we pass in plus what it finds online and
-/// proposes changes in a ```calendar block; nothing changes until you click Apply.
+/// set up as your planner. It may look things up (web, every mail account in Apple Mail, all calendars,
+/// files on this Mac incl. synced Google Drive) but only reads. It proposes changes in a ```calendar block; nothing changes until you click Apply.
 @MainActor
 final class ChatModel: ObservableObject {
     enum Op: Equatable {
@@ -332,16 +331,42 @@ final class ChatModel: ObservableObject {
         - Contacts: when \(me) says "speicher den Kontakt" or sends a profile, card or chat with someone's number, propose
           {"op":"contact","name":"Full Name","phone":"+44 …","email":"…","note":"where you met, e.g. LinkedIn, Milan"}
           Only what is visible or said. Leave email out unless it is shown. The app saves it to Contacts after \(me) clicks.
-        - You can look things up online (WebSearch, WebFetch): event agendas and schedules, deadlines, opening hours,
-          travel times, the date of something. When the answer is on the web, look it up yourself instead of asking \(me),
-          then propose the exact times. Name the source in one short line. If you cannot find it, say so in one line.
-        - You have no files and no memory. Never write tool calls or XML as text. Everything \(me) wants kept goes into
+        - Look things up yourself instead of asking \(me). You can only read, never send, book, delete or edit:
+          · All of \(me)'s mail (every account in Apple Mail: work, private, uni):
+            `python3 mail.py search <words> [--days 365]`, then `python3 mail.py read <id>`. Use this first for flights,
+            trains, hotels, tickets, bookings, invitations, deadlines. Search a few likely words (airline, "booking",
+            "Flug", sender, booking code), then read the best hit.
+          · Every calendar on this Mac, a year back and ahead: `./studiocal --find <words> [--days 365]`.
+          · Files on this Mac (Read, Grep, Glob): notes in ~/Code and ~/Documents, Google Drive in ~/Library/CloudStorage.
+          · The web (WebSearch, WebFetch): event agendas, opening hours, travel times.
+          Then propose exact times as events. Put flight numbers, booking codes, gates or seats in the title or location.
+          Name the source in a few words. If nothing is found, say so in one line.
+        - You have no memory. Never write tool calls or XML as text. Everything \(me) wants kept goes into
           a calendar event (notes in the title or location) or a contact, as a proposal.
         """
     }
 
-    /// The only tools the planner gets: read the web, nothing on this Mac.
-    static let webTools = "WebSearch,WebFetch"
+    /// Built-in tools the planner sees. Bash is there only for the two searches below; any other command is refused.
+    /// No MCP servers or connectors: everything it needs is on this Mac, and loading them would cost ~20x the tokens.
+    static let builtInTools = "WebSearch,WebFetch,Read,Grep,Glob,Bash"
+    /// What runs without asking: reading only. Nothing here sends, books, deletes or edits.
+    static let allowedTools = "WebSearch,WebFetch,Read,Grep,Glob,Bash(python3 mail.py:*),Bash(./studiocal --find:*)"
+
+    /// Puts the two search helpers next to the planner: `python3 mail.py …` (Apple Mail) and
+    /// `./studiocal --find …` (this app's own binary, which already has calendar access).
+    private static func installHelpers(in dir: URL) {
+        let fm = FileManager.default
+        if let src = Bundle.main.url(forResource: "mail", withExtension: "py") {
+            let dst = dir.appendingPathComponent("mail.py")
+            try? fm.removeItem(at: dst)
+            try? fm.copyItem(at: src, to: dst)
+        }
+        if let exe = Bundle.main.executablePath {
+            let link = dir.appendingPathComponent("studiocal")
+            try? fm.removeItem(at: link)
+            try? fm.createSymbolicLink(atPath: link.path, withDestinationPath: exe)
+        }
+    }
 
     private func run(_ text: String, image: (data: Data, type: String)? = nil) {
         guard let claude = Self.claudePath() else {
@@ -351,10 +376,13 @@ final class ChatModel: ObservableObject {
         let p = Process()
         p.executableURL = URL(fileURLWithPath: claude)
         var args = ["-p", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose",
-                    "--tools", Self.webTools, "--allowedTools", Self.webTools, "--strict-mcp-config", "--settings", #"{"autoMemoryEnabled":false}"#,
+                    "--tools", Self.builtInTools, "--allowedTools", Self.allowedTools, "--strict-mcp-config",
+                    "--add-dir", FileManager.default.homeDirectoryForCurrentUser.path,
+                    "--settings", #"{"autoMemoryEnabled":false}"#,
                     "--model", UserDefaults.standard.string(forKey: "claudeModel") ?? "sonnet",
                     "--append-system-prompt", systemPrompt()]
         if let sessionID { args += ["--resume", sessionID] }
+        Self.installHelpers(in: Self.workDir())
         p.arguments = args
         p.currentDirectoryURL = Self.workDir()
         var env = ProcessInfo.processInfo.environment
@@ -422,7 +450,7 @@ final class ChatModel: ObservableObject {
             if let msg = obj["message"] as? [String: Any], let content = msg["content"] as? [[String: Any]] {
                 let text = content.compactMap { $0["type"] as? String == "text" ? $0["text"] as? String : nil }.joined()
                 if !text.isEmpty { setReply(text) }
-                else if content.contains(where: { $0["type"] as? String == "tool_use" }) { setReply("Looking it up online …") }
+                else if content.contains(where: { $0["type"] as? String == "tool_use" }) { setReply("Looking it up …") }
             }
         case "result":
             if let sid = obj["session_id"] as? String { sessionID = sid }

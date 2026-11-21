@@ -16,6 +16,7 @@ rm -rf dist && mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/StudioCalendar"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
 cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
+cp Resources/mail.py "$APP/Contents/Resources/mail.py"
 ZIP="dist/Studio-Calendar-$VERSION.zip"
 if [ -n "${RELEASE_IDENTITY:-}" ]; then
   codesign --force --options runtime --timestamp --entitlements Resources/StudioCalendar.entitlements \

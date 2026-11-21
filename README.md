@@ -122,10 +122,20 @@ defaults write $D claudePath /path/to/claude              # if Claude Code is no
 
 ## Claude
 
-The prompt runs your locally installed Claude Code (`claude -p`) with no tools and a planner prompt that contains
-your next 14 days, your free time, names and addresses of people from your past meetings and, if you use it,
-your to-do list. That is what goes to Claude, through your own Claude Code login. The app has no server and
-collects nothing.
+The prompt runs your locally installed Claude Code (`claude -p`) with a planner prompt that contains your next
+14 days, your free time, names and addresses of people from your past meetings and, if you use it, your to-do
+list. It goes to Claude through your own Claude Code login. The app has no server and collects nothing.
+
+So you can ask "when does my flight leave?" or "put the hackathon agenda in", the planner may look things up,
+read-only, and then proposes events as usual:
+
+- **Mail:** every account in Apple Mail, through `Resources/mail.py` (reads Mail's index and message files).
+- **Calendars:** every calendar on the Mac, a year back and ahead (`StudioCalendar --find <words>`).
+- **Files:** Read, Grep and Glob in your home folder (notes, a synced Google Drive).
+- **Web:** WebSearch and WebFetch (agendas, opening hours).
+
+Anything that would write, send or run other commands is refused. Mail and some folders need
+**Full Disk Access** for Studio Calendar (System Settings > Privacy & Security > Full Disk Access).
 
 Invites and meeting notes use the Google Calendar and Gmail connectors of your Claude account, each call
 limited to the few tools it needs (list/create/update events; search/read mail). The app only starts them
