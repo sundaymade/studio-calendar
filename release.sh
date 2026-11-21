@@ -17,6 +17,7 @@ cp "$BIN" "$APP/Contents/MacOS/StudioCalendar"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
 cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 cp Resources/mail.py "$APP/Contents/Resources/mail.py"
+xattr -cr "$APP"   # no ._ files in the zip
 ZIP="dist/Studio-Calendar-$VERSION.zip"
 if [ -n "${RELEASE_IDENTITY:-}" ]; then
   codesign --force --options runtime --timestamp --entitlements Resources/StudioCalendar.entitlements \
@@ -24,11 +25,11 @@ if [ -n "${RELEASE_IDENTITY:-}" ]; then
 else
   codesign --force --sign - "$APP"
 fi
-ditto -c -k --keepParent "$APP" "$ZIP"
+ditto -c -k --norsrc --noextattr --noqtn --keepParent "$APP" "$ZIP"
 if [ -n "${RELEASE_IDENTITY:-}" ] && [ -n "${NOTARY_PROFILE:-}" ]; then
   xcrun notarytool submit "$ZIP" --keychain-profile "$NOTARY_PROFILE" --wait
   xcrun stapler staple "$APP"
-  rm "$ZIP" && ditto -c -k --keepParent "$APP" "$ZIP"
+  rm "$ZIP" && ditto -c -k --norsrc --noextattr --noqtn --keepParent "$APP" "$ZIP"
 fi
 codesign -dv "$APP" 2>&1 | grep -E "Signature|Authority|Identifier" | head -3
 echo "$ZIP ($(du -h "$ZIP" | cut -f1))"
